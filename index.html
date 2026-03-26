@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Type-O-Matic Typewriter Tutor</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel for parsing JSX in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    /* Custom scrollbar to match retro aesthetic if scrolling is ever needed */
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #292524; }
+    ::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #78716c; }
+  </style>
+</head>
+<body class="bg-stone-800 text-stone-100 overflow-hidden selection:bg-yellow-200">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // --- ICON COMPONENTS ---
+    // Replacing lucide-react with inline SVGs to ensure standard HTML compatibility without a bundler
+    const Keyboard = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2" ry="2"/><path d="M6 8h.001"/><path d="M10 8h.001"/><path d="M14 8h.001"/><path d="M18 8h.001"/><path d="M8 12h.001"/><path d="M12 12h.001"/><path d="M16 12h.001"/><path d="M7 16h10"/></svg>
+    );
+    const RotateCcw = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+    );
+    const Trophy = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+    );
+    const RefreshCcw = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+    );
+    const Play = ({ size = 24, className = "", fill = "none" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="6 3 20 12 6 21 6 3"/></svg>
+    );
+    const CheckCircle = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    );
+    const XCircle = ({ size = 24, className = "" }) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    );
+
+    // --- CONSTANTS & DATA ---
+    const LEVEL_DATA = [
+      { id: 1, name: "Home Row Basic", chars: ['a','s','d','f','j','k','l',';'] },
+      { id: 2, name: "Home Row Full", chars: ['a','s','d','f','g','h','j','k','l',';'] },
+      { id: 3, name: "Top Row Basic", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','u','i','o','p'] },
+      { id: 4, name: "Top Row Full", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','t','y','u','i','o','p'] },
+      { id: 5, name: "Bottom Row Basic", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','t','y','u','i','o','p', 'z','x','c','v','m',',','.','/'] },
+      { id: 6, name: "Bottom Row Full", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','t','y','u','i','o','p', 'z','x','c','v','b','n','m',',','.','/'] },
+    ];
+
+    const INITIAL_TARGET_WPM = 30;
+    const TARGET_ACCURACY = 90;
+
+    const DICTIONARY = [
+      "a", "as", "ad", "all", "ask", "fall", "flask", "sad", "dad", "add", "lass", "salad", "alas", "lad", "fad",
+      "gas", "hag", "gag", "ash", "gash", "hash", "dash", "flash", "glass", "half", "hall", "glad", "flag",
+      "has", "had", "shall", "sag", "qwe", "rty", "uio", "pat", "tap", "rap", "lap", "map", "nap", "sap", 
+      "cap", "gap", "far", "tar", "car", "jar", "are", "ear", "era", "red", "raw", "war", "was", "saw", 
+      "way", "say", "day", "pay", "hay", "lay", "may", "the", "and", "that", "have", "for", "not", "this", 
+      "but", "his", "from", "they", "we", "her", "she", "will", "one", "would", "there", "their", "what", 
+      "out", "about", "who", "get", "which", "go", "me", "when", "make", "can", "like", "time", "no", 
+      "just", "him", "know", "take", "people", "into", "year", "your", "good", "some", "could", "them", 
+      "see", "other", "than", "then", "now", "look", "only", "come", "its", "over", "think", "also", 
+      "back", "after", "use", "two", "how", "our", "work", "first", "well", "way", "even", "new", "want", 
+      "because", "any", "these", "give", "most", "us"
+    ];
+
+    const KEYBOARD_ROWS = [
+      ['q','w','e','r','t','y','u','i','o','p'],
+      ['a','s','d','f','g','h','j','k','l',';'],
+      ['z','x','c','v','b','n','m',',','.','/']
+    ];
+
+    const FINGER_MAP = {
+      'q': 'pinky-l', 'a': 'pinky-l', 'z': 'pinky-l',
+      'w': 'ring-l', 's': 'ring-l', 'x': 'ring-l',
+      'e': 'middle-l', 'd': 'middle-l', 'c': 'middle-l',
+      'r': 'index-l', 'f': 'index-l', 'v': 'index-l', 't': 'index-l', 'g': 'index-l', 'b': 'index-l',
+      'y': 'index-r', 'h': 'index-r', 'n': 'index-r', 'u': 'index-r', 'j': 'index-r', 'm': 'index-r',
+      'i': 'middle-r', 'k': 'middle-r', ',': 'middle-r',
+      'o': 'ring-r', 'l': 'ring-r', '.': 'ring-r',
+      'p': 'pinky-r', ';': 'pinky-r', '/': 'pinky-r',
+      ' ': 'thumb'
+    };
+
+    const FINGER_COLORS = {
+      'pinky-l': 'bg-rose-300 border-rose-500 text-rose-900',
+      'ring-l': 'bg-orange-300 border-orange-500 text-orange-900',
+      'middle-l': 'bg-yellow-300 border-yellow-500 text-yellow-900',
+      'index-l': 'bg-emerald-300 border-emerald-500 text-emerald-900',
+      'index-r': 'bg-teal-300 border-teal-500 text-teal-900',
+      'middle-r': 'bg-blue-300 border-blue-500 text-blue-900',
+      'ring-r': 'bg-indigo-300 border-indigo-500 text-indigo-900',
+      'pinky-r': 'bg-purple-300 border-purple-500 text-purple-900',
+      'thumb': 'bg-stone-300 border-stone-500 text-stone-900'
+    };
+
+    // --- HELPER FUNCTIONS ---
+    const generatePracticeText = (levelNum) => {
+      const chars = LEVEL_DATA[levelNum - 1].chars;
+      const allowed = new Set(chars);
+      const validWords = DICTIONARY.filter(w => w.split('').every(c => allowed.has(c)));
+      
+      let words = [];
+      for (let i = 0; i < 12; i++) {
+        if (validWords.length > 5 && Math.random() > 0.4) {
+          words.push(validWords[Math.floor(Math.random() * validWords.length)]);
+        } else {
+          let length = Math.floor(Math.random() * 3) + 3; // 3-5 chars
+          let gibberish = '';
+          for (let j = 0; j < length; j++) {
+            gibberish += chars[Math.floor(Math.random() * chars.length)];
+          }
+          words.push(gibberish);
+        }
+      }
+      return words.join(' ');
+    };
+
+    // --- MAIN COMPONENT ---
+    function App() {
+      const [currentLevel, setCurrentLevel] = useState(1);
+      const [currentTargetWpm, setCurrentTargetWpm] = useState(INITIAL_TARGET_WPM);
+      const [gameState, setGameState] = useState('idle'); 
+      const [text, setText] = useState('');
+      const [input, setInput] = useState('');
+      
+      const [startTime, setStartTime] = useState(null);
+      const [errors, setErrors] = useState(0);
+      const [totalKeysPressed, setTotalKeysPressed] = useState(0);
+      const [stats, setStats] = useState({ wpm: 0, accuracy: 0 });
+      const [pressedKeys, setPressedKeys] = useState(new Set());
+
+      const stateRef = useRef({ input, text, gameState, errors, totalKeysPressed, startTime });
+
+      useEffect(() => {
+        const saved = localStorage.getItem('typeOMaticProgress');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            if (parsed.level) setCurrentLevel(parsed.level);
+            if (parsed.wpm) setCurrentTargetWpm(parsed.wpm);
+          } catch (e) {
+            console.error("Error parsing localStorage progress", e);
+          }
+        }
+      }, []);
+
+      const saveProgress = (level, wpm) => {
+        localStorage.setItem('typeOMaticProgress', JSON.stringify({ level, wpm }));
+      };
+
+      useEffect(() => {
+        stateRef.current = { input, text, gameState, errors, totalKeysPressed, startTime };
+      });
+
+      const startGame = useCallback((level) => {
+        setText(generatePracticeText(level));
+        setInput('');
+        setGameState('idle');
+        setErrors(0);
+        setTotalKeysPressed(0);
+        setStartTime(null);
+        setStats({ wpm: 0, accuracy: 0 });
+      }, []);
+
+      useEffect(() => {
+        startGame(currentLevel);
+      }, [currentLevel, startGame]);
+
+      useEffect(() => {
+        const handleKeyDown = (e) => {
+          const { input, text, gameState, errors, totalKeysPressed, startTime } = stateRef.current;
+          
+          setPressedKeys(prev => new Set(prev).add(e.key.toLowerCase()));
+
+          if (e.key === 'Escape') {
+            startGame(currentLevel);
+            return;
+          }
+
+          if (gameState === 'results') return;
+
+          if (e.altKey || e.ctrlKey || e.metaKey || e.key.length > 1) {
+            return;
+          }
+
+          if (e.key === ' ') e.preventDefault(); 
+
+          const targetChar = text[input.length];
+
+          if (gameState === 'idle') {
+            setGameState('typing');
+            setStartTime(Date.now());
+          }
+
+          setTotalKeysPressed(prev => prev + 1);
+
+          if (e.key === targetChar) {
+            const newInput = input + e.key;
+            setInput(newInput);
+
+            if (newInput.length === text.length) {
+              const endTime = Date.now();
+              const timeMinutes = Math.max((endTime - (startTime || Date.now())) / 60000, 0.01); 
+              const wpmCalc = Math.round((text.length / 5) / timeMinutes);
+              const accCalc = Math.round(((totalKeysPressed + 1 - errors) / (totalKeysPressed + 1)) * 100);
+              
+              setStats({ wpm: wpmCalc, accuracy: accCalc });
+              setGameState('results');
+            }
+          } else {
+            setErrors(prev => prev + 1);
+          }
+        };
+
+        const handleKeyUp = (e) => {
+          setPressedKeys(prev => {
+            const next = new Set(prev);
+            next.delete(e.key.toLowerCase());
+            return next;
+          });
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+          window.removeEventListener('keyup', handleKeyUp);
+        };
+      }, [currentLevel, startGame]);
+
+      useEffect(() => {
+        if (gameState !== 'results') return;
+        
+        const handleResultKeys = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleNextAction();
+          }
+        };
+
+        window.addEventListener('keydown', handleResultKeys);
+        return () => window.removeEventListener('keydown', handleResultKeys);
+      }, [gameState, currentLevel, currentTargetWpm, stats]); 
+
+      const handleNextAction = () => {
+        const passed = stats.wpm >= currentTargetWpm && stats.accuracy >= TARGET_ACCURACY;
+        if (passed) {
+          let nextLevel = currentLevel + 1;
+          let nextWpm = currentTargetWpm;
+          
+          if (nextLevel > LEVEL_DATA.length) {
+            nextLevel = 1;
+            nextWpm += 5; 
+          }
+          
+          setCurrentLevel(nextLevel);
+          setCurrentTargetWpm(nextWpm);
+          saveProgress(nextLevel, nextWpm);
+          startGame(nextLevel);
+        } else {
+          startGame(currentLevel);
+        }
+      };
+
+      const handleResetProgress = () => {
+        setCurrentLevel(1);
+        setCurrentTargetWpm(INITIAL_TARGET_WPM);
+        saveProgress(1, INITIAL_TARGET_WPM);
+        startGame(1);
+      };
+
+      const renderKeyboardKey = (char, label = char, extraClasses = "") => {
+        const isTarget = text[input.length] === char && gameState !== 'results';
+        const fingerClass = FINGER_COLORS[FINGER_MAP[char]] || 'bg-stone-200 border-stone-400 text-stone-700';
+        const isPressed = pressedKeys.has(char);
+
+        return (
+          <div
+            key={char}
+            className={`
+              flex items-center justify-center rounded-full font-bold uppercase shadow-[0_6px_0_rgba(0,0,0,0.4)]
+              transition-all duration-75 border-b-4 border-r-2 border-l-2
+              ${fingerClass}
+              ${isPressed ? 'translate-y-1.5 shadow-[0_0px_0_rgba(0,0,0,0.4)] border-b-0 border-r border-l border-opacity-50' : ''}
+              ${isTarget ? 'ring-4 ring-offset-4 ring-offset-stone-900 ring-yellow-400 animate-pulse z-10' : ''}
+              ${extraClasses}
+            `}
+          >
+            {label}
+          </div>
+        );
+      };
+
+      const progressPercent = Math.min((input.length / text.length) * 100, 100) || 0;
+      const passedLevel = stats.wpm >= currentTargetWpm && stats.accuracy >= TARGET_ACCURACY;
+
+      return (
+        <div className="min-h-screen sm:h-screen overflow-hidden bg-stone-800 flex flex-col items-center justify-center p-2 sm:p-4 font-sans">
+          
+          {/* Top HUD */}
+          <div className="w-full max-w-4xl flex items-center justify-between mb-2 sm:mb-6 text-stone-300">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-stone-700 rounded-lg">
+                <Keyboard size={24} className="text-yellow-400 sm:w-7 sm:h-7" />
+              </div>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold tracking-wider text-stone-100 uppercase">Type-O-Matic</h1>
+                <p className="text-xs sm:text-sm text-stone-400">Level {currentLevel}: {LEVEL_DATA[currentLevel - 1].name}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 sm:gap-6 items-center">
+              <button 
+                onClick={handleResetProgress}
+                className="flex items-center gap-1 text-[10px] sm:text-xs text-stone-400 hover:text-stone-200 transition-colors px-2 py-1.5 border border-stone-600 rounded-md hover:bg-stone-700 cursor-pointer"
+                title="Reset Progress"
+              >
+                <RotateCcw size={14} /> <span className="hidden sm:inline">Reset</span>
+              </button>
+              <div className="flex gap-3 sm:gap-6 bg-stone-900/50 p-2 sm:p-3 rounded-xl border border-stone-700">
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] sm:text-xs uppercase tracking-widest text-stone-400">Target Speed</span>
+                  <span className="text-sm sm:text-lg font-bold text-emerald-400">{currentTargetWpm} WPM</span>
+                </div>
+                <div className="w-px bg-stone-700"></div>
+                <div className="flex flex-col items-center">
+                  <span className="text-[9px] sm:text-xs uppercase tracking-widest text-stone-400">Target Acc</span>
+                  <span className="text-sm sm:text-lg font-bold text-emerald-400">{TARGET_ACCURACY}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Typewriter Machine */}
+          <div className="w-full max-w-4xl relative transform scale-[0.9] sm:scale-100 origin-top">
+            
+            <div className="absolute -top-6 sm:-top-10 left-8 sm:left-12 right-8 sm:right-12 h-10 sm:h-16 bg-stone-950 rounded-t-xl z-0 border-t-8 border-stone-700"></div>
+            
+            <div className="relative z-10 mx-auto w-11/12 bg-[#fdfaf3] rounded-sm shadow-2xl min-h-[140px] sm:min-h-[200px] border-l border-r border-t border-stone-300 p-4 pt-8 sm:p-8 sm:pt-12">
+              <div className="absolute inset-0 pointer-events-none opacity-20" 
+                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, #60a5fa 31px, #60a5fa 32px)', marginTop: '32px' }}>
+              </div>
+
+              <div className="relative text-xl sm:text-3xl leading-[32px] sm:leading-[40px] font-mono whitespace-pre-wrap break-words tracking-tight text-stone-400">
+                {text.split('').map((char, i) => {
+                  let colorClass = 'text-stone-300'; 
+                  let bgClass = '';
+                  let underline = '';
+                  
+                  if (i < input.length) {
+                    colorClass = 'text-stone-900';
+                  } else if (i === input.length) {
+                    colorClass = 'text-stone-900 font-bold';
+                    bgClass = 'bg-yellow-300/80';
+                    underline = 'border-b-4 border-stone-900';
+                  }
+
+                  return (
+                    <span key={i} className={`relative ${colorClass} ${bgClass} rounded-[2px] ${underline} inline-block transition-colors duration-75`}>
+                      {char === ' ' ? '\u00A0' : char}
+                    </span>
+                  );
+                })}
+              </div>
+
+              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-stone-200">
+                <div 
+                  className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
+                  style={{ width: `${progressPercent}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="relative z-20 bg-stone-900 mt-[-5px] sm:mt-[-10px] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b-8 border-stone-950 p-4 pb-8 pt-10 sm:p-8 pb-12 sm:pt-16">
+              
+              <div className="absolute top-0 left-4 right-4 h-4 sm:h-6 bg-gradient-to-b from-stone-600 via-stone-400 to-stone-800 rounded-full shadow-lg border border-stone-500"></div>
+
+              <div className="flex flex-col gap-2 sm:gap-4 max-w-3xl mx-auto mt-4 sm:mt-6">
+                <div className="flex justify-center gap-2 sm:gap-3 ml-4 sm:ml-6">
+                  {KEYBOARD_ROWS[0].map(char => renderKeyboardKey(char, char, "w-10 h-10 sm:w-12 sm:h-12 text-lg sm:text-xl"))}
+                </div>
+                <div className="flex justify-center gap-2 sm:gap-3 ml-10 sm:ml-12">
+                  {KEYBOARD_ROWS[1].map(char => renderKeyboardKey(char, char, "w-10 h-10 sm:w-12 sm:h-12 text-lg sm:text-xl"))}
+                </div>
+                <div className="flex justify-center gap-2 sm:gap-3 ml-16 sm:ml-20">
+                  {KEYBOARD_ROWS[2].map(char => renderKeyboardKey(char, char, "w-10 h-10 sm:w-12 sm:h-12 text-lg sm:text-xl"))}
+                </div>
+                <div className="flex justify-center mt-2">
+                  {renderKeyboardKey(' ', 'SPACE', "w-64 sm:w-96 h-10 sm:h-12 text-sm sm:text-lg tracking-widest")}
+                </div>
+              </div>
+
+              {gameState === 'idle' && (
+                <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 text-center animate-pulse">
+                  <span className="bg-yellow-400 text-stone-900 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg">
+                    Start typing to begin!
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Results Modal */}
+          {gameState === 'results' && (
+            <div className="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-[#fdfaf3] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl border-4 border-stone-800 text-center transform duration-300">
+                
+                <div className="flex justify-center mb-4">
+                  {passedLevel ? (
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 rounded-full flex items-center justify-center">
+                      <Trophy size={32} className="text-emerald-500 sm:w-10 sm:h-10" />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-rose-100 rounded-full flex items-center justify-center">
+                      <RefreshCcw size={32} className="text-rose-500 sm:w-10 sm:h-10" />
+                    </div>
+                  )}
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-bold text-stone-800 mb-2">
+                  {passedLevel ? "Level Passed!" : "Keep Practicing!"}
+                </h2>
+                <p className="text-sm sm:text-base text-stone-600 mb-6 sm:mb-8 font-medium">
+                  {passedLevel 
+                    ? "You met the goal! Ready for new keys?" 
+                    : "You didn't quite meet the goal. Try again to build muscle memory."}
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                  <div className={`p-3 sm:p-4 rounded-xl border-2 ${stats.wpm >= currentTargetWpm ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                    <div className="text-stone-500 text-xs sm:text-sm font-bold uppercase mb-1">Speed</div>
+                    <div className="text-3xl sm:text-4xl font-black text-stone-800">{stats.wpm}</div>
+                    <div className="text-[10px] sm:text-xs text-stone-500 mt-1">Goal: {currentTargetWpm} wpm</div>
+                    {stats.wpm >= currentTargetWpm ? <CheckCircle size={16} className="text-emerald-500 mx-auto mt-1 sm:mt-2"/> : <XCircle size={16} className="text-rose-400 mx-auto mt-1 sm:mt-2"/>}
+                  </div>
+                  
+                  <div className={`p-3 sm:p-4 rounded-xl border-2 ${stats.accuracy >= TARGET_ACCURACY ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+                    <div className="text-stone-500 text-xs sm:text-sm font-bold uppercase mb-1">Accuracy</div>
+                    <div className="text-3xl sm:text-4xl font-black text-stone-800">{stats.accuracy}%</div>
+                    <div className="text-[10px] sm:text-xs text-stone-500 mt-1">Goal: {TARGET_ACCURACY}%</div>
+                    {stats.accuracy >= TARGET_ACCURACY ? <CheckCircle size={16} className="text-emerald-500 mx-auto mt-1 sm:mt-2"/> : <XCircle size={16} className="text-rose-400 mx-auto mt-1 sm:mt-2"/>}
+                  </div>
+                </div>
+
+                <button 
+                  onClick={handleNextAction}
+                  className={`w-full py-3 sm:py-4 px-6 rounded-xl text-lg sm:text-xl font-bold shadow-[0_4px_0_rgba(0,0,0,0.2)] transition-all active:translate-y-1 active:shadow-none flex items-center justify-center gap-2
+                    ${passedLevel ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-yellow-400 hover:bg-yellow-300 text-stone-900'}
+                  `}
+                >
+                  {passedLevel && currentLevel === LEVEL_DATA.length ? (
+                    <React.Fragment>Next Goal <Play size={20} className="sm:w-6 sm:h-6" fill="currentColor" /></React.Fragment>
+                  ) : passedLevel ? (
+                    <React.Fragment>Next Level <Play size={20} className="sm:w-6 sm:h-6" fill="currentColor" /></React.Fragment>
+                  ) : (
+                    <React.Fragment>Try Again <RefreshCcw size={20} className="sm:w-6 sm:h-6" /></React.Fragment>
+                  )}
+                </button>
+                
+                <p className="mt-4 text-[10px] sm:text-xs text-stone-400 uppercase font-bold tracking-widest">
+                  Press Enter or Space to continue
+                </p>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // Render the App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
