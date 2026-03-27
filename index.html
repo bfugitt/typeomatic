@@ -30,7 +30,6 @@
     const { useState, useEffect, useRef, useCallback } = React;
 
     // --- ICON COMPONENTS ---
-    // Replacing lucide-react with inline SVGs to ensure standard HTML compatibility without a bundler
     const Keyboard = ({ size = 24, className = "" }) => (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2" ry="2"/><path d="M6 8h.001"/><path d="M10 8h.001"/><path d="M14 8h.001"/><path d="M18 8h.001"/><path d="M8 12h.001"/><path d="M12 12h.001"/><path d="M16 12h.001"/><path d="M7 16h10"/></svg>
     );
@@ -55,15 +54,23 @@
 
     // --- CONSTANTS & DATA ---
     const LEVEL_DATA = [
-      { id: 1, name: "Home Row Basic", chars: ['a','s','d','f','j','k','l',';'] },
-      { id: 2, name: "Home Row Full", chars: ['a','s','d','f','g','h','j','k','l',';'] },
-      { id: 3, name: "Top Row Basic", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','u','i','o','p'] },
-      { id: 4, name: "Top Row Full", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','t','y','u','i','o','p'] },
-      { id: 5, name: "Bottom Row Basic", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','t','y','u','i','o','p', 'z','x','c','v','m',',','.','/'] },
-      { id: 6, name: "Bottom Row Full", chars: ['a','s','d','f','g','h','j','k','l',';', 'q','w','e','r','t','y','u','i','o','p', 'z','x','c','v','b','n','m',',','.','/'] },
+      { id: 1, name: "Home Core", chars: ['f','j','d','k'] },
+      { id: 2, name: "Home Ring", chars: ['f','j','d','k','s','l'] },
+      { id: 3, name: "Home Pinky", chars: ['f','j','d','k','s','l','a',';'] },
+      { id: 4, name: "Home Stretch", chars: ['f','j','d','k','s','l','a',';','g','h'] },
+      { id: 5, name: "Top Core", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u'] },
+      { id: 6, name: "Top Middle", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i'] },
+      { id: 7, name: "Top Ring", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o'] },
+      { id: 8, name: "Top Pinky", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p'] },
+      { id: 9, name: "Top Stretch", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y'] },
+      { id: 10, name: "Bottom Core", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m'] },
+      { id: 11, name: "Bottom Middle", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',','] },
+      { id: 12, name: "Bottom Ring", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',',','x','.'] },
+      { id: 13, name: "Bottom Pinky", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',',','x','.','z','/'] },
+      { id: 14, name: "Bottom Stretch", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',',','x','.','z','/','b','n'] },
     ];
 
-    const INITIAL_TARGET_WPM = 30;
+    const INITIAL_TARGET_WPM = 20; // Lowered from 30 to help kids build initial confidence
     const TARGET_ACCURACY = 90;
 
     const DICTIONARY = [
@@ -121,7 +128,8 @@
         if (validWords.length > 5 && Math.random() > 0.4) {
           words.push(validWords[Math.floor(Math.random() * validWords.length)]);
         } else {
-          let length = Math.floor(Math.random() * 3) + 3; // 3-5 chars
+          // Generates 3-5 character "words" out of the allowed set for muscle memory drilling
+          let length = Math.floor(Math.random() * 3) + 3; 
           let gibberish = '';
           for (let j = 0; j < length; j++) {
             gibberish += chars[Math.floor(Math.random() * chars.length)];
@@ -267,7 +275,7 @@
           
           if (nextLevel > LEVEL_DATA.length) {
             nextLevel = 1;
-            nextWpm += 5; 
+            nextWpm += 5; // Adds speed requirement once all keys are learned!
           }
           
           setCurrentLevel(nextLevel);
@@ -288,8 +296,18 @@
 
       const renderKeyboardKey = (char, label = char, extraClasses = "") => {
         const isTarget = text[input.length] === char && gameState !== 'results';
-        const fingerClass = FINGER_COLORS[FINGER_MAP[char]] || 'bg-stone-200 border-stone-400 text-stone-700';
         const isPressed = pressedKeys.has(char);
+        
+        // Determine if key is active in the current level
+        const currentLevelChars = LEVEL_DATA[currentLevel - 1].chars;
+        const isActive = currentLevelChars.includes(char) || char === ' ';
+
+        // Color logic
+        let fingerClass = FINGER_COLORS[FINGER_MAP[char]] || 'bg-stone-200 border-stone-400 text-stone-700';
+        
+        if (!isActive) {
+          fingerClass = 'bg-stone-700 border-stone-800 text-stone-500'; // Greyscale for inactive keys
+        }
 
         return (
           <div
