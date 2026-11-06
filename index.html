@@ -1,511 +1,664 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Type-O-Matic Typewriter Tutor</title>
-  
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React & ReactDOM -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  
-  <!-- Babel for parsing JSX in the browser -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Type-O-Matic: Learn to Touch Type</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;800&family=Atkinson+Hyperlegible+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #e4ecef;
+    --panel: #253747;
+    --panel-dark: #1b2a37;
+    --paper: #fffbf2;
+    --ink: #1d2733;
+    --muted: #66788a;
+    --faint: #a3b0bd;
+    --target: #ffcd3c;
+    --good: #2f8f5b;
+    --oops: #e07a1f;
+    --f-pinkyL: #f7a8b8; --f-ringL: #fbc58a; --f-middleL: #f8e27a; --f-pointerL: #9fdcae;
+    --f-pointerR: #8fd8d2; --f-middleR: #9cc5f4; --f-ringR: #bdb5f3; --f-pinkyR: #dcb1ef; --f-thumb: #cfd6dd;
+    --mono: "Atkinson Hyperlegible Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: Lexend, "Trebuchet MS", sans-serif; font-size: 17px; overflow: hidden; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid #2f6fd0; outline-offset: 2px; }
+  .app { height: 100%; display: flex; flex-direction: column; }
 
-  <style>
-    /* Custom scrollbar to match retro aesthetic if scrolling is ever needed */
-    ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #292524; }
-    ::-webkit-scrollbar-thumb { background: #57534e; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #78716c; }
-  </style>
+  /* ---------- Header ---------- */
+  header { flex: none; display: flex; align-items: center; gap: 16px; padding: 8px 18px; }
+  .logo { font-weight: 800; font-size: 24px; letter-spacing: -0.5px; margin: 0; color: var(--panel); white-space: nowrap; }
+  .logo span { color: var(--oops); }
+  .crumbs { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  .crumbs h2 { margin: 0; font-size: 19px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .steps { display: flex; gap: 4px; }
+  .steps span { font-size: 13px; padding: 3px 10px; border-radius: 999px; background: #fff; color: var(--muted); border: 1px solid #c9d3db; white-space: nowrap; }
+  .steps span.now { background: var(--panel); color: #fff; border-color: var(--panel); }
+  .steps span.done { background: #d8efe2; color: var(--good); border-color: #b4dcc4; }
+  .btn { font-weight: 600; border: 2px solid var(--panel); background: #fff; border-radius: 10px; padding: 7px 16px; cursor: pointer; }
+  .btn:hover { background: #f3f6f8; }
+  .btn.primary { background: var(--panel); color: #fff; }
+  .btn.primary:hover { background: #33495d; }
+  .btn.small { padding: 4px 10px; font-size: 15px; border-width: 1px; }
+  .btn.on { background: var(--panel); color: #fff; }
+
+  main { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; padding: 0 18px 12px; gap: 10px; }
+
+  /* ---------- Paper strip ---------- */
+  .paperwrap { width: min(980px, 100%); position: relative; flex: none; }
+  .paper {
+    background: var(--paper); border-radius: 6px; padding: 16px 26px; min-height: 128px;
+    box-shadow: 0 2px 0 #cfd8de, 0 6px 18px rgba(37, 55, 71, .12);
+    font-family: var(--mono); font-size: 34px; line-height: 1.55; letter-spacing: .5px;
+  }
+  .paper .c { color: var(--faint); border-radius: 3px; }
+  .paper .c.typed { color: var(--ink); }
+  .paper .c.missed { color: var(--ink); text-decoration: underline wavy var(--oops); text-underline-offset: 6px; }
+  .paper .c.cur { background: var(--target); color: var(--ink); box-shadow: inset 0 -4px 0 var(--ink); }
+  .paper .c.sp { color: #d3dae0; }
+  .paper .c.sp.typed, .paper .c.sp.missed { color: transparent; }
+  .paper .c.cur.sp { color: var(--ink); }
+  .paper .c.bump { animation: bump .25s; }
+  @keyframes bump { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+  .tip { min-height: 26px; font-size: 18px; text-align: center; margin: 0; color: var(--muted); }
+  .tip.oops { color: var(--oops); font-weight: 600; }
+  .tip b { color: var(--ink); }
+  .caps { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255, 251, 242, .95);
+          border-radius: 6px; font-size: 22px; font-weight: 600; color: var(--oops); }
+
+  /* ---------- Machine: keyboard and hands ---------- */
+  .machine { width: min(980px, 100%); flex: 1; min-height: 0; background: var(--panel); border-radius: 18px; padding: 14px 18px 10px;
+             box-shadow: inset 0 -6px 0 var(--panel-dark); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+  .kb { --k: min(58px, 7.6vh, 7.4vw); display: flex; flex-direction: column; gap: calc(var(--k) * .14); }
+  .kb .row { display: flex; gap: calc(var(--k) * .14); }
+  .key {
+    width: var(--k); height: var(--k); border-radius: 10px; display: flex; align-items: center; justify-content: center; position: relative;
+    font-weight: 600; font-size: calc(var(--k) * .42); text-transform: uppercase; color: var(--ink);
+    box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .18); transition: transform .06s;
+  }
+  .key.off { background: #3a4d5e !important; color: #6f8394; box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .25); }
+  .key.home::after { content: ""; position: absolute; bottom: 9px; width: 12px; height: 3px; border-radius: 2px; background: currentColor; opacity: .6; }
+  .key.next { outline: 4px solid var(--target); outline-offset: 3px; z-index: 1; }
+  .key.down { transform: translateY(3px); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .18); }
+  .key.wrong { background: var(--oops) !important; color: #fff; }
+  .key.new { box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .18), 0 0 0 3px #fff; }
+  .key.wide { width: calc(var(--k) * 1.75); font-size: calc(var(--k) * .28); text-transform: none; }
+  .key.space { width: calc(var(--k) * 6.2); font-size: calc(var(--k) * .28); text-transform: none; }
+  .blank .key:not(.wide):not(.space) { color: transparent !important; }
+  .blank .key.home::after { background: var(--ink); }
+  .fpinkyL { background: var(--f-pinkyL); } .fringL { background: var(--f-ringL); } .fmiddleL { background: var(--f-middleL); }
+  .fpointerL { background: var(--f-pointerL); } .fpointerR { background: var(--f-pointerR); } .fmiddleR { background: var(--f-middleR); }
+  .fringR { background: var(--f-ringR); } .fpinkyR { background: var(--f-pinkyR); } .fthumb { background: var(--f-thumb); }
+  .hands { height: min(100px, 14vh); flex: none; }
+  .hands .finger { fill: #4a5f71; stroke: var(--panel-dark); stroke-width: 2; }
+  .hands .palm { fill: #4a5f71; stroke: var(--panel-dark); stroke-width: 2; }
+  .hands .finger.lit { stroke: #fff; stroke-width: 3; }
+
+  /* ---------- Cards (results, meet the keys) ---------- */
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; }
+  .card { background: #fff; border-radius: 16px; padding: 18px 26px; box-shadow: 0 10px 30px rgba(27, 42, 55, .25); text-align: center; width: min(620px, 100%); }
+  .card h3 { margin: 0 0 4px; font-size: 26px; }
+  .card p { margin: 6px 0; line-height: 1.45; }
+  .stars { font-size: 40px; letter-spacing: 6px; color: var(--target); -webkit-text-stroke: 1.5px #c99a12; }
+  .stars .no { color: #e9edf0; -webkit-text-stroke: 1.5px #c5ced6; }
+  .nums { display: flex; justify-content: center; gap: 26px; margin: 6px 0; }
+  .nums div { font-size: 15px; color: var(--muted); }
+  .nums b { display: block; font-size: 26px; color: var(--ink); }
+  .actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .hint { font-size: 14px; color: var(--muted); }
+  .meet { text-align: left; }
+  .paper.meetpanel { font-family: Lexend, sans-serif; font-size: 18px; line-height: 1.45; letter-spacing: 0; display: flex; gap: 22px; align-items: center; padding: 14px 24px; }
+  .meetpanel h3 { margin: 0 0 4px; font-size: 22px; }
+  .meetpanel p { margin: 4px 0; }
+  .meetpanel .go { flex: none; text-align: center; }
+  .meet .big { font-size: 22px; line-height: 1.45; margin: 4px 0 8px; }
+  .kc { display: inline-block; font-family: var(--mono); font-weight: 700; border-radius: 6px; padding: 0 8px; margin: 0 2px; box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); text-transform: uppercase; }
+
+  /* ---------- Lesson list ---------- */
+  .lessons { width: min(1080px, 100%); overflow: auto; flex: 1; min-height: 0; padding: 4px 2px 10px; }
+  .lessons h3 { margin: 6px 0 8px; font-size: 18px; color: var(--muted); font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .tile { text-align: left; background: #fff; border: 2px solid #c9d3db; border-radius: 12px; padding: 9px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+  .tile:hover { border-color: var(--panel); }
+  .tile .t { font-weight: 600; }
+  .tile .s { font-size: 15px; color: var(--muted); }
+  .tile .st { color: #c99a12; letter-spacing: 1px; }
+  .tile.locked { opacity: .5; cursor: default; }
+  .tile.locked:hover { border-color: #c9d3db; }
+  .tile.current { border-color: var(--good); box-shadow: 0 0 0 2px var(--good); }
+  .tile .keys { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tile .keys .kc { font-size: 14px; padding: 0 6px; }
+
+  @media (prefers-reduced-motion: reduce) { .paper .c.bump { animation: none; } .key { transition: none; } }
+  @media (max-height: 560px) { .paper { font-size: 28px; min-height: 100px; padding: 10px 20px; } .hands { display: none; } }
+</style>
 </head>
-<body class="bg-stone-800 text-stone-100 overflow-hidden selection:bg-yellow-200">
-  <div id="root"></div>
+<body>
+<div class="app">
+  <header>
+    <h1 class="logo">Type-<span>O</span>-Matic</h1>
+    <div class="crumbs" id="crumbs"></div>
+    <button class="btn small" id="blankBtn" title="Hide the letters on the on-screen keys">Blank keys</button>
+    <button class="btn small" id="lessonsBtn">Lessons</button>
+  </header>
+  <main id="main"></main>
+</div>
 
-  <script type="text/babel">
-    const { useState, useEffect, useRef, useCallback } = React;
+<script>
+/* =====================================================================
+   TYPE-O-MATIC: learn to touch type, a few keys at a time.
 
-    // --- ICON COMPONENTS ---
-    const Keyboard = ({ size = 24, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="20" height="16" x="2" y="4" rx="2" ry="2"/><path d="M6 8h.001"/><path d="M10 8h.001"/><path d="M14 8h.001"/><path d="M18 8h.001"/><path d="M8 12h.001"/><path d="M12 12h.001"/><path d="M16 12h.001"/><path d="M7 16h10"/></svg>
-    );
-    const RotateCcw = ({ size = 24, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-    );
-    const Trophy = ({ size = 24, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
-    );
-    const RefreshCcw = ({ size = 24, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
-    );
-    const Play = ({ size = 24, className = "", fill = "none" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="6 3 20 12 6 21 6 3"/></svg>
-    );
-    const CheckCircle = ({ size = 24, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-    );
-    const XCircle = ({ size = 24, className = "" }) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-    );
+   TEACHER SETTINGS: change these to tune the program.
+   Tip: add ?unlock=all to the page address to open every lesson.
+   ===================================================================== */
+const SETTINGS = {
+  STAR_ACCURACY: [80, 90, 96],   // accuracy (%) for 1, 2 and 3 stars. One star moves you on.
+  SPEED_BELTS: [10, 12, 14, 16, 18, 20, 22, 25],  // words-per-minute goals in Speed Builder, after all keys are learned
+  SPEED_BELT_ACCURACY: 90,       // accuracy also needed to earn a speed belt
+  GROUPS_PER_STEP: 8,            // letter groups or words in each practice step
+  UNLOCK_ALL: false,             // true opens every lesson for everyone
+  TRICKY_MIN_TRIES: 12,          // a key needs this many tries before it can be called tricky
+  TRICKY_MISS_RATE: 0.15         // ...and this share of misses
+};
 
-    // --- CONSTANTS & DATA ---
-    const LEVEL_DATA = [
-      { id: 1, name: "Home Core", chars: ['f','j','d','k'] },
-      { id: 2, name: "Home Ring", chars: ['f','j','d','k','s','l'] },
-      { id: 3, name: "Home Pinky", chars: ['f','j','d','k','s','l','a',';'] },
-      { id: 4, name: "Home Stretch", chars: ['f','j','d','k','s','l','a',';','g','h'] },
-      { id: 5, name: "Top Core", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u'] },
-      { id: 6, name: "Top Middle", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i'] },
-      { id: 7, name: "Top Ring", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o'] },
-      { id: 8, name: "Top Pinky", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p'] },
-      { id: 9, name: "Top Stretch", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y'] },
-      { id: 10, name: "Bottom Core", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m'] },
-      { id: 11, name: "Bottom Middle", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',','] },
-      { id: 12, name: "Bottom Ring", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',',','x','.'] },
-      { id: 13, name: "Bottom Pinky", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',',','x','.','z','/'] },
-      { id: 14, name: "Bottom Stretch", chars: ['f','j','d','k','s','l','a',';','g','h', 'r','u','e','i','w','o','q','p','t','y', 'v','m','c',',','x','.','z','/','b','n'] },
-    ];
+/* ============================ KEYBOARD MODEL ============================ */
+const ROWS = [
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l", ";"],
+  ["z", "x", "c", "v", "b", "n", "m", ",", ".", "/"]
+];
+const FINGER = {
+  q: "pinkyL", a: "pinkyL", z: "pinkyL", w: "ringL", s: "ringL", x: "ringL", e: "middleL", d: "middleL", c: "middleL",
+  r: "pointerL", f: "pointerL", v: "pointerL", t: "pointerL", g: "pointerL", b: "pointerL",
+  y: "pointerR", h: "pointerR", n: "pointerR", u: "pointerR", j: "pointerR", m: "pointerR",
+  i: "middleR", k: "middleR", ",": "middleR", o: "ringR", l: "ringR", ".": "ringR", p: "pinkyR", ";": "pinkyR", "/": "pinkyR",
+  " ": "thumb", ShiftL: "pinkyL", ShiftR: "pinkyR"
+};
+const FINGER_NAME = {
+  pinkyL: "left pinky", ringL: "left ring finger", middleL: "left middle finger", pointerL: "left pointer finger",
+  pointerR: "right pointer finger", middleR: "right middle finger", ringR: "right ring finger", pinkyR: "right pinky", thumb: "thumb"
+};
+const HOME_OF = { pinkyL: "a", ringL: "s", middleL: "d", pointerL: "f", pointerR: "j", middleR: "k", ringR: "l", pinkyR: ";" };
+const HOME_KEYS = new Set(["a", "s", "d", "f", "j", "k", "l", ";"]);
+const keyName = k => k === " " ? "Space" : k === ";" ? "semicolon (;)" : k === "," ? "comma (,)" : k === "." ? "period (.)" : k === "/" ? "slash (/)" : k.toUpperCase();
+const kc = k => `<span class="kc f${FINGER[k.toLowerCase()] || "thumb"}">${k === " " ? "space" : esc(k)}</span>`;
 
-    const INITIAL_TARGET_WPM = 20; // Lowered from 30 to help kids build initial confidence
-    const TARGET_ACCURACY = 90;
+/* ============================ LESSONS ============================ */
+const LESSONS = [
+  { keys: ["f", "j"], title: "F and J", meet: "Rest your pointer fingers on F and J. Feel the little bumps? They let you find home without looking. Tap the space bar with your thumb." },
+  { keys: ["d", "k"], title: "D and K", meet: "Your middle fingers rest on D and K, right next to your pointer fingers." },
+  { keys: ["s", "l"], title: "S and L", meet: "Your ring fingers rest on S and L." },
+  { keys: ["a", ";"], title: "A and ;", meet: "Your pinkies rest on A and the semicolon (;). Now all eight fingers are home!" },
+  { keys: ["g", "h"], title: "G and H", meet: "Your pointer fingers slide one key toward the middle for G and H, then slide back home." },
+  { keys: ["e", "i"], title: "E and I", meet: "Your middle fingers reach up for E and I, then come back home to D and K." },
+  { keys: ["r", "u"], title: "R and U", meet: "Your pointer fingers reach up for R and U, then come back home to F and J." },
+  { keys: ["t", "y"], title: "T and Y", meet: "Your pointer fingers reach up and toward the middle for T and Y." },
+  { keys: ["o", "w"], title: "O and W", meet: "Your ring fingers reach up for W and O, then come back home to S and L." },
+  { keys: ["n", "m"], title: "N and M", meet: "Your right pointer finger reaches down for M, and down and toward the middle for N." },
+  { keys: ["c", ","], title: "C and comma", meet: "Your middle fingers reach down for C and the comma." },
+  { keys: ["v", "b"], title: "V and B", meet: "Your left pointer finger reaches down for V, and down and toward the middle for B." },
+  { keys: ["p", "q"], title: "P and Q", meet: "Your pinkies reach up for Q and P. This is a long stretch, so go slowly." },
+  { keys: ["x", "."], title: "X and period", meet: "Your ring fingers reach down for X and the period." },
+  { keys: ["z", "/"], title: "Z and /", meet: "Your pinkies reach down for Z and the slash. That's every letter!" },
+  { keys: ["Shift"], title: "Capital letters", meet: "To make a capital letter, hold Shift with the pinky on the other hand, then press the letter. For a capital F, your right pinky holds Shift." }
+];
+const SHIFT_LESSON = LESSONS.length - 1;
+function lettersUpTo(li) {
+  const s = [];
+  for (let i = 0; i <= Math.min(li, SHIFT_LESSON - 1); i++) s.push(...LESSONS[i].keys);
+  return s;
+}
 
-    const DICTIONARY = [
-      "a", "as", "ad", "all", "ask", "fall", "flask", "sad", "dad", "add", "lass", "salad", "alas", "lad", "fad",
-      "gas", "hag", "gag", "ash", "gash", "hash", "dash", "flash", "glass", "half", "hall", "glad", "flag",
-      "has", "had", "shall", "sag", "qwe", "rty", "uio", "pat", "tap", "rap", "lap", "map", "nap", "sap", 
-      "cap", "gap", "far", "tar", "car", "jar", "are", "ear", "era", "red", "raw", "war", "was", "saw", 
-      "way", "say", "day", "pay", "hay", "lay", "may", "the", "and", "that", "have", "for", "not", "this", 
-      "but", "his", "from", "they", "we", "her", "she", "will", "one", "would", "there", "their", "what", 
-      "out", "about", "who", "get", "which", "go", "me", "when", "make", "can", "like", "time", "no", 
-      "just", "him", "know", "take", "people", "into", "year", "your", "good", "some", "could", "them", 
-      "see", "other", "than", "then", "now", "look", "only", "come", "its", "over", "think", "also", 
-      "back", "after", "use", "two", "how", "our", "work", "first", "well", "way", "even", "new", "want", 
-      "because", "any", "these", "give", "most", "us"
-    ];
+/* Words for practice. Only words made of the keys learned so far are used. */
+const WORDS = (`a as ad add all ask dad fad fall flask lad lass sad salad alas glad flag gas half hall has had shall dash flash glass
+jag lag sag hash gash
+see seed feed fee deed eel ill isle aid said side slide hide hid his kid kids lid like lake fake jake idea ideas life file
+fill hill silk skill hike hikes sail fail ale ages egg eggs leg legs gel led sled shed she he her here head heal deal
+dish fish fig figs dig digs jig wig gift
+red read ride rides hire fire fur fun far jar are ear dear fear gear hear rare sure user rug rugs hug hugs dug rude rule
+just jug jugs guide sugar real rider dirt
+the that this they them their there these three tree trees treat tries try tray yard yes yet year day days say says stay
+they toy toys stir tail tale tight light right sight night fight height kite kites eight her yell yellow ready earth sit set
+all ate eat seat heat great kitty tiger rest test first fast last list lift gift
+how now cow wow owl own row rows sow show slow snow grow glow flow low lower tower power wet were what why who will
+wild wish word words work world would write wrote woke wolf wood good food look took door floor for four out our hour
+your you young new news no not note open over know knew window yellow follow
+man men moon noon none name names nine many money music mom more most must my me milk mail main mean meet mind mine mint mud
+made make made map maps game games home time times team same some sum summer seem dream drum
+can cat cats cut cute cake cakes car care cart call came come cold class clock click clean cool cook color cent nice ice rice
+race face place space dance chance once each catch couch which much such
+vet van vase very love live give gave have five dive drive brave above even ever never river silver seven over
+big bag bags bat bed bee bees bell best bird birds bike blue boat book books box bus but by bring brown bread bridge
+plan play plant plate please pet pets pen pencil pick pig pink pizza pop pup puppy park part party paper pack apple happy
+quiet quick quit quiz queen quilt question equal square
+six fix mix fox box wax next text taxi relax extra exit
+zoo zero zip zebra size prize lazy fuzzy dozen amazing crazy maze freeze`).split(/\s+/).filter(Boolean);
 
-    const KEYBOARD_ROWS = [
-      ['q','w','e','r','t','y','u','i','o','p'],
-      ['a','s','d','f','g','h','j','k','l',';'],
-      ['z','x','c','v','b','n','m',',','.','/']
-    ];
+/* Sentences for Speed Builder: letters, capitals, commas and periods only. */
+const SENTENCES = [
+  "The quick brown fox jumps over the lazy dog.",
+  "My dog likes to dig in the garden.",
+  "We read a book about the moon and the stars.",
+  "The class planted seeds in small paper cups.",
+  "A bright red kite flew high over the park.",
+  "Sam packed an apple, a sandwich, and a drink.",
+  "The river runs past the old stone bridge.",
+  "California has mountains, deserts, and beaches.",
+  "Our team won the game in the last minute.",
+  "The cat slept in a warm patch of sunlight.",
+  "Please put your books away before lunch.",
+  "We walked to the library after school.",
+  "The baker made fresh bread early in the morning.",
+  "Seven ducks swam across the quiet pond.",
+  "My sister plays the piano every evening.",
+  "The music teacher taught us a new song.",
+  "Bees buzz from flower to flower all day.",
+  "We saw a whale near the beach in San Diego.",
+  "The rain stopped, and a rainbow filled the sky.",
+  "Dad made pancakes with blueberries on Sunday.",
+  "The children lined up quietly at the door.",
+  "A tiny turtle crawled slowly across the sand.",
+  "Grandma told a funny story at dinner.",
+  "The bus was late because of the fog.",
+  "We counted twelve stars in the night sky.",
+  "Maria drew a map of her neighborhood.",
+  "The zebra and the giraffe stood by the fence.",
+  "Every morning we pray and say the pledge.",
+  "The fire truck raced down the busy street.",
+  "Owls hunt at night and sleep during the day.",
+  "Jake found a shiny rock on the hiking trail.",
+  "The soup was hot, so we waited a minute.",
+  "Our garden has tomatoes, beans, and squash.",
+  "The puppy chased its tail around the yard.",
+  "We wrote thank you notes to our helpers.",
+  "Mount Whitney is the tallest mountain in California.",
+  "The astronauts floated inside the space station.",
+  "A good typist keeps both eyes on the screen.",
+  "Practice a little every day, and you will improve.",
+  "The mission bells rang across the valley."
+];
 
-    const FINGER_MAP = {
-      'q': 'pinky-l', 'a': 'pinky-l', 'z': 'pinky-l',
-      'w': 'ring-l', 's': 'ring-l', 'x': 'ring-l',
-      'e': 'middle-l', 'd': 'middle-l', 'c': 'middle-l',
-      'r': 'index-l', 'f': 'index-l', 'v': 'index-l', 't': 'index-l', 'g': 'index-l', 'b': 'index-l',
-      'y': 'index-r', 'h': 'index-r', 'n': 'index-r', 'u': 'index-r', 'j': 'index-r', 'm': 'index-r',
-      'i': 'middle-r', 'k': 'middle-r', ',': 'middle-r',
-      'o': 'ring-r', 'l': 'ring-r', '.': 'ring-r',
-      'p': 'pinky-r', ';': 'pinky-r', '/': 'pinky-r',
-      ' ': 'thumb'
-    };
+/* ============================ HELPERS ============================ */
+const $ = s => document.querySelector(s);
+const main = $("#main"), crumbs = $("#crumbs");
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const listJoin = a => a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+function starsFor(acc) { let s = 0; SETTINGS.STAR_ACCURACY.forEach(t => { if (acc >= t) s++; }); return s; }
+function starHtml(n, of = 3) { let h = '<span class="stars">'; for (let i = 0; i < of; i++) h += i < n ? "★" : '<span class="no">★</span>'; return h + "</span>"; }
 
-    const FINGER_COLORS = {
-      'pinky-l': 'bg-rose-300 border-rose-500 text-rose-900',
-      'ring-l': 'bg-orange-300 border-orange-500 text-orange-900',
-      'middle-l': 'bg-yellow-300 border-yellow-500 text-yellow-900',
-      'index-l': 'bg-emerald-300 border-emerald-500 text-emerald-900',
-      'index-r': 'bg-teal-300 border-teal-500 text-teal-900',
-      'middle-r': 'bg-blue-300 border-blue-500 text-blue-900',
-      'ring-r': 'bg-indigo-300 border-indigo-500 text-indigo-900',
-      'pinky-r': 'bg-purple-300 border-purple-500 text-purple-900',
-      'thumb': 'bg-stone-300 border-stone-500 text-stone-900'
-    };
+/* ---------- Progress (saved in this browser) ---------- */
+const P = (() => {
+  const d = { stars: {}, unlocked: 0, keys: {}, belt: 0, best: 0, blank: false };
+  try { return Object.assign(d, JSON.parse(localStorage.getItem("typeomatic2") || "{}")); } catch (e) { return d; }
+})();
+const save = () => { try { localStorage.setItem("typeomatic2", JSON.stringify(P)); } catch (e) {} };
+const unlockAll = SETTINGS.UNLOCK_ALL || new URLSearchParams(location.search).get("unlock") === "all";
+const isOpen = li => unlockAll || li <= P.unlocked;
+function trickyKeys() {
+  return Object.entries(P.keys)
+    .filter(([k, v]) => k.length === 1 && v[0] >= SETTINGS.TRICKY_MIN_TRIES && v[1] / v[0] >= SETTINGS.TRICKY_MISS_RATE)
+    .sort((a, b) => b[1][1] / b[1][0] - a[1][1] / a[1][0]).slice(0, 4).map(([k]) => k);
+}
 
-    // --- HELPER FUNCTIONS ---
-    const generatePracticeText = (levelNum) => {
-      const chars = LEVEL_DATA[levelNum - 1].chars;
-      const allowed = new Set(chars);
-      const validWords = DICTIONARY.filter(w => w.split('').every(c => allowed.has(c)));
-      
-      let words = [];
-      for (let i = 0; i < 12; i++) {
-        if (validWords.length > 5 && Math.random() > 0.4) {
-          words.push(validWords[Math.floor(Math.random() * validWords.length)]);
-        } else {
-          // Generates 3-5 character "words" out of the allowed set for muscle memory drilling
-          let length = Math.floor(Math.random() * 3) + 3; 
-          let gibberish = '';
-          for (let j = 0; j < length; j++) {
-            gibberish += chars[Math.floor(Math.random() * chars.length)];
-          }
-          words.push(gibberish);
-        }
-      }
-      return words.join(' ');
-    };
+/* ============================ PRACTICE TEXT ============================ */
+function wordsWith(letters) { const set = new Set(letters); return WORDS.filter(w => [...w].every(c => set.has(c))); }
+function cluster(newKeys, pool, newShare, len) {
+  let g = "";
+  for (let i = 0; i < len; i++) g += Math.random() < newShare ? pick(newKeys) : pick(pool);
+  if (![...g].some(c => newKeys.includes(c))) g = g.slice(1) + pick(newKeys);
+  return g;
+}
+// Warm-up: each new key with its home key, like "frf juj".
+function warmupText(li) {
+  const L = LESSONS[li];
+  if (li === SHIFT_LESSON) return "Ff Jj Dd Kk Ss Ll Aa Gg Hh Ee Ii";
+  const parts = [];
+  for (const k of L.keys) {
+    const home = HOME_OF[FINGER[k]];
+    parts.push(HOME_KEYS.has(k) ? k.repeat(3) : home + k + home, HOME_KEYS.has(k) ? k.repeat(3) : home + k + home);
+  }
+  const [a, b] = L.keys;
+  parts.push(a + b, b + a, a + a + b, b + b + a);
+  return parts.join(" ");
+}
+function homeRowOf(letters) { const h = letters.filter(c => "asdfghjkl;".includes(c)); return h.length ? h : letters; }
+function drillText(li) {
+  const L = LESSONS[li];
+  if (li === SHIFT_LESSON) return shiftWords(SETTINGS.GROUPS_PER_STEP);
+  const pool = homeRowOf(lettersUpTo(li - 1).length ? lettersUpTo(li - 1) : L.keys);
+  const out = [];
+  for (let i = 0; i < SETTINGS.GROUPS_PER_STEP; i++) out.push(cluster(L.keys, pool, 0.55, 3 + rnd(2)));
+  return out.join(" ");
+}
+function mixText(li) {
+  const L = LESSONS[li], all = lettersUpTo(li);
+  if (li === SHIFT_LESSON) return shuffle(SENTENCES).slice(0, 1)[0];
+  const words = wordsWith(all), withNew = words.filter(w => L.keys.some(k => w.includes(k)));
+  const out = [];
+  for (let i = 0; i < SETTINGS.GROUPS_PER_STEP; i++) {
+    if (i % 2 === 1 && withNew.length >= 3) out.push(pick(withNew));
+    else out.push(cluster(L.keys, all, 0.35, 3 + rnd(2)));
+  }
+  return out.join(" ");
+}
+function wordsText(li) {
+  const L = LESSONS[li], all = lettersUpTo(li);
+  if (li === SHIFT_LESSON) return shuffle(SENTENCES).slice(0, 2).join(" ");
+  const words = wordsWith(all);
+  if (words.length < 6) return null;
+  const withNew = shuffle(words.filter(w => L.keys.some(k => w.includes(k))));
+  const out = withNew.slice(0, Math.ceil(SETTINGS.GROUPS_PER_STEP * 0.6));
+  while (out.length < SETTINGS.GROUPS_PER_STEP) out.push(pick(words));
+  return shuffle(out).join(" ");
+}
+function shiftWords(n) {
+  const w = shuffle(WORDS.filter(x => x.length >= 3 && x.length <= 6)).slice(0, n);
+  return w.map(x => x[0].toUpperCase() + x.slice(1)).join(" ");
+}
+function trickyText(keys) {
+  const all = lettersUpTo(Math.max(0, Math.min(P.unlocked, SHIFT_LESSON - 1)));
+  const words = wordsWith(all).filter(w => keys.some(k => w.includes(k)));
+  const out = [];
+  for (let i = 0; i < SETTINGS.GROUPS_PER_STEP; i++) out.push(i % 2 && words.length ? pick(words) : cluster(keys, all, 0.6, 3 + rnd(2)));
+  return out.join(" ");
+}
+function lessonSteps(li) {
+  const steps = [{ id: "meet", name: "Meet the keys" }, { id: "warmup", name: "Warm-up" }, { id: "drill", name: "Drill" }, { id: "mix", name: "Mix" }];
+  if (li === SHIFT_LESSON || wordsWith(lettersUpTo(li)).length >= 6) steps.push({ id: "words", name: li === SHIFT_LESSON ? "Sentences" : "Words" });
+  return steps;
+}
 
-    // --- MAIN COMPONENT ---
-    function App() {
-      const [currentLevel, setCurrentLevel] = useState(1);
-      const [currentTargetWpm, setCurrentTargetWpm] = useState(INITIAL_TARGET_WPM);
-      const [gameState, setGameState] = useState('idle'); 
-      const [text, setText] = useState('');
-      const [input, setInput] = useState('');
-      
-      const [startTime, setStartTime] = useState(null);
-      const [errors, setErrors] = useState(0);
-      const [totalKeysPressed, setTotalKeysPressed] = useState(0);
-      const [stats, setStats] = useState({ wpm: 0, accuracy: 0 });
-      const [pressedKeys, setPressedKeys] = useState(new Set());
+/* ============================ ON-SCREEN KEYBOARD AND HANDS ============================ */
+function keyboardHtml(active, newKeys = []) {
+  const act = new Set(active), nk = new Set(newKeys);
+  const key = k => `<div class="key f${FINGER[k]}${act.has(k) ? "" : " off"}${HOME_KEYS.has(k) && (k === "f" || k === "j") ? " home" : ""}${nk.has(k) ? " new" : ""}" data-k="${esc(k)}">${k}</div>`;
+  const shiftOn = act.has("Shift");
+  return `<div class="kb ${P.blank ? "blank" : ""}" id="kb">
+    <div class="row" style="margin-left:calc(var(--k)*.5)">${ROWS[0].map(key).join("")}</div>
+    <div class="row" style="margin-left:calc(var(--k)*.8)">${ROWS[1].map(key).join("")}</div>
+    <div class="row"><div class="key wide fpinkyL${shiftOn ? "" : " off"}${nk.has("Shift") ? " new" : ""}" data-k="ShiftL">shift</div>${ROWS[2].map(key).join("")}<div class="key wide fpinkyR${shiftOn ? "" : " off"}${nk.has("Shift") ? " new" : ""}" data-k="ShiftR">shift</div></div>
+    <div class="row" style="justify-content:center"><div class="key space fthumb" data-k=" ">space</div></div>
+  </div>`;
+}
+function handsHtml() {
+  // Two simple hands, palms down. Finger order left to right: pinky, ring, middle, pointer, thumb (left hand).
+  const L = [["pinkyL", 18, 40, 36], ["ringL", 40, 22, 54], ["middleL", 62, 14, 62], ["pointerL", 84, 22, 54]];
+  const R = [["pointerR", 246, 22, 54], ["middleR", 268, 14, 62], ["ringR", 290, 22, 54], ["pinkyR", 312, 40, 36]];
+  const f = ([id, x, y, h]) => `<rect class="finger" data-f="${id}" x="${x}" y="${y}" width="18" height="${h}" rx="9"/>`;
+  return `<svg class="hands" viewBox="0 0 350 120" aria-hidden="true">
+    <rect class="palm" x="14" y="66" width="92" height="52" rx="18"/>${L.map(f).join("")}
+    <rect class="finger" data-f="thumb" x="104" y="80" width="46" height="18" rx="9" transform="rotate(-20 104 89)"/>
+    <rect class="palm" x="244" y="66" width="92" height="52" rx="18"/>${R.map(f).join("")}
+    <rect class="finger" data-f="thumb" x="200" y="80" width="46" height="18" rx="9" transform="rotate(20 246 89)"/>
+  </svg>`;
+}
+function lightKey(ch) {
+  document.querySelectorAll(".key.next").forEach(e => e.classList.remove("next"));
+  document.querySelectorAll(".hands .finger").forEach(e => { e.classList.remove("lit"); e.style.fill = ""; });
+  if (ch == null) return;
+  const lower = ch.toLowerCase(), needsShift = ch !== lower;
+  const keys = [lower];
+  if (needsShift) keys.push(FINGER[lower].endsWith("L") ? "ShiftR" : "ShiftL");
+  for (const k of keys) {
+    const el = document.querySelector(`.key[data-k="${CSS.escape(k)}"]`);
+    if (el) el.classList.add("next");
+    const fg = FINGER[k];
+    document.querySelectorAll(`.hands .finger[data-f="${fg}"]`).forEach(e => { e.classList.add("lit"); e.style.fill = `var(--f-${fg})`; });
+  }
+}
+function flashKey(k, cls, ms) {
+  const el = document.querySelector(`.key[data-k="${CSS.escape(k)}"]`);
+  if (!el) return;
+  el.classList.add(cls); setTimeout(() => el.classList.remove(cls), ms);
+}
 
-      const stateRef = useRef({ input, text, gameState, errors, totalKeysPressed, startTime });
-
-      useEffect(() => {
-        const saved = localStorage.getItem('typeOMaticProgress');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (parsed.level) setCurrentLevel(parsed.level);
-            if (parsed.wpm) setCurrentTargetWpm(parsed.wpm);
-          } catch (e) {
-            console.error("Error parsing localStorage progress", e);
-          }
-        }
-      }, []);
-
-      const saveProgress = (level, wpm) => {
-        localStorage.setItem('typeOMaticProgress', JSON.stringify({ level, wpm }));
-      };
-
-      useEffect(() => {
-        stateRef.current = { input, text, gameState, errors, totalKeysPressed, startTime };
-      });
-
-      const startGame = useCallback((level) => {
-        setText(generatePracticeText(level));
-        setInput('');
-        setGameState('idle');
-        setErrors(0);
-        setTotalKeysPressed(0);
-        setStartTime(null);
-        setStats({ wpm: 0, accuracy: 0 });
-      }, []);
-
-      useEffect(() => {
-        startGame(currentLevel);
-      }, [currentLevel, startGame]);
-
-      useEffect(() => {
-        const handleKeyDown = (e) => {
-          const { input, text, gameState, errors, totalKeysPressed, startTime } = stateRef.current;
-          
-          setPressedKeys(prev => new Set(prev).add(e.key.toLowerCase()));
-
-          if (e.key === 'Escape') {
-            startGame(currentLevel);
-            return;
-          }
-
-          if (gameState === 'results') return;
-
-          if (e.altKey || e.ctrlKey || e.metaKey || e.key.length > 1) {
-            return;
-          }
-
-          if (e.key === ' ') e.preventDefault(); 
-
-          const targetChar = text[input.length];
-
-          if (gameState === 'idle') {
-            setGameState('typing');
-            setStartTime(Date.now());
-          }
-
-          setTotalKeysPressed(prev => prev + 1);
-
-          if (e.key === targetChar) {
-            const newInput = input + e.key;
-            setInput(newInput);
-
-            if (newInput.length === text.length) {
-              const endTime = Date.now();
-              const timeMinutes = Math.max((endTime - (startTime || Date.now())) / 60000, 0.01); 
-              const wpmCalc = Math.round((text.length / 5) / timeMinutes);
-              const accCalc = Math.round(((totalKeysPressed + 1 - errors) / (totalKeysPressed + 1)) * 100);
-              
-              setStats({ wpm: wpmCalc, accuracy: accCalc });
-              setGameState('results');
-            }
-          } else {
-            setErrors(prev => prev + 1);
-          }
-        };
-
-        const handleKeyUp = (e) => {
-          setPressedKeys(prev => {
-            const next = new Set(prev);
-            next.delete(e.key.toLowerCase());
-            return next;
-          });
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-          window.removeEventListener('keydown', handleKeyDown);
-          window.removeEventListener('keyup', handleKeyUp);
-        };
-      }, [currentLevel, startGame]);
-
-      useEffect(() => {
-        if (gameState !== 'results') return;
-        
-        const handleResultKeys = (e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleNextAction();
-          }
-        };
-
-        window.addEventListener('keydown', handleResultKeys);
-        return () => window.removeEventListener('keydown', handleResultKeys);
-      }, [gameState, currentLevel, currentTargetWpm, stats]); 
-
-      const handleNextAction = () => {
-        const passed = stats.wpm >= currentTargetWpm && stats.accuracy >= TARGET_ACCURACY;
-        if (passed) {
-          let nextLevel = currentLevel + 1;
-          let nextWpm = currentTargetWpm;
-          
-          if (nextLevel > LEVEL_DATA.length) {
-            nextLevel = 1;
-            nextWpm += 5; // Adds speed requirement once all keys are learned!
-          }
-          
-          setCurrentLevel(nextLevel);
-          setCurrentTargetWpm(nextWpm);
-          saveProgress(nextLevel, nextWpm);
-          startGame(nextLevel);
-        } else {
-          startGame(currentLevel);
-        }
-      };
-
-      const handleResetProgress = () => {
-        setCurrentLevel(1);
-        setCurrentTargetWpm(INITIAL_TARGET_WPM);
-        saveProgress(1, INITIAL_TARGET_WPM);
-        startGame(1);
-      };
-
-      const renderKeyboardKey = (char, label = char, extraClasses = "") => {
-        const isTarget = text[input.length] === char && gameState !== 'results';
-        const isPressed = pressedKeys.has(char);
-        
-        // Determine if key is active in the current level
-        const currentLevelChars = LEVEL_DATA[currentLevel - 1].chars;
-        const isActive = currentLevelChars.includes(char) || char === ' ';
-
-        // Color logic
-        let fingerClass = FINGER_COLORS[FINGER_MAP[char]] || 'bg-stone-200 border-stone-400 text-stone-700';
-        
-        if (!isActive) {
-          fingerClass = 'bg-stone-700 border-stone-800 text-stone-500'; // Greyscale for inactive keys
-        }
-
-        return (
-          <div
-            key={char}
-            className={`
-              flex items-center justify-center rounded-full font-bold uppercase shadow-[0_6px_0_rgba(0,0,0,0.4)]
-              transition-all duration-75 border-b-4 border-r-2 border-l-2
-              ${fingerClass}
-              ${isPressed ? 'translate-y-1.5 shadow-[0_0px_0_rgba(0,0,0,0.4)] border-b-0 border-r border-l border-opacity-50' : ''}
-              ${isTarget ? 'ring-4 ring-offset-4 ring-offset-stone-900 ring-yellow-400 animate-pulse z-10' : ''}
-              ${extraClasses}
-            `}
-          >
-            {label}
-          </div>
-        );
-      };
-
-      const progressPercent = Math.min((input.length / text.length) * 100, 100) || 0;
-      const passedLevel = stats.wpm >= currentTargetWpm && stats.accuracy >= TARGET_ACCURACY;
-
-      return (
-        <div className="min-h-screen sm:h-screen overflow-hidden bg-stone-800 flex flex-col items-center justify-center p-2 sm:p-4 font-sans">
-          
-          {/* Top HUD */}
-          <div className="w-full max-w-4xl flex items-center justify-between mb-2 sm:mb-6 text-stone-300">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="p-1.5 sm:p-2 bg-stone-700 rounded-lg">
-                <Keyboard size={24} className="text-yellow-400 sm:w-7 sm:h-7" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold tracking-wider text-stone-100 uppercase">Type-O-Matic</h1>
-                <p className="text-xs sm:text-sm text-stone-400">Level {currentLevel}: {LEVEL_DATA[currentLevel - 1].name}</p>
-              </div>
-            </div>
-            
-            <div className="flex gap-2 sm:gap-6 items-center">
-              <button 
-                onClick={handleResetProgress}
-                className="flex items-center gap-1 text-[10px] sm:text-xs text-stone-400 hover:text-stone-200 transition-colors px-2 py-1.5 border border-stone-600 rounded-md hover:bg-stone-700 cursor-pointer"
-                title="Reset Progress"
-              >
-                <RotateCcw size={14} /> <span className="hidden sm:inline">Reset</span>
-              </button>
-              <div className="flex gap-3 sm:gap-6 bg-stone-900/50 p-2 sm:p-3 rounded-xl border border-stone-700">
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] sm:text-xs uppercase tracking-widest text-stone-400">Target Speed</span>
-                  <span className="text-sm sm:text-lg font-bold text-emerald-400">{currentTargetWpm} WPM</span>
-                </div>
-                <div className="w-px bg-stone-700"></div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] sm:text-xs uppercase tracking-widest text-stone-400">Target Acc</span>
-                  <span className="text-sm sm:text-lg font-bold text-emerald-400">{TARGET_ACCURACY}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Typewriter Machine */}
-          <div className="w-full max-w-4xl relative transform scale-[0.9] sm:scale-100 origin-top">
-            
-            <div className="absolute -top-6 sm:-top-10 left-8 sm:left-12 right-8 sm:right-12 h-10 sm:h-16 bg-stone-950 rounded-t-xl z-0 border-t-8 border-stone-700"></div>
-            
-            <div className="relative z-10 mx-auto w-11/12 bg-[#fdfaf3] rounded-sm shadow-2xl min-h-[140px] sm:min-h-[200px] border-l border-r border-t border-stone-300 p-4 pt-8 sm:p-8 sm:pt-12">
-              <div className="absolute inset-0 pointer-events-none opacity-20" 
-                   style={{ backgroundImage: 'repeating-linear-gradient(transparent, transparent 31px, #60a5fa 31px, #60a5fa 32px)', marginTop: '32px' }}>
-              </div>
-
-              <div className="relative text-xl sm:text-3xl leading-[32px] sm:leading-[40px] font-mono whitespace-pre-wrap break-words tracking-tight text-stone-400">
-                {text.split('').map((char, i) => {
-                  let colorClass = 'text-stone-300'; 
-                  let bgClass = '';
-                  let underline = '';
-                  
-                  if (i < input.length) {
-                    colorClass = 'text-stone-900';
-                  } else if (i === input.length) {
-                    colorClass = 'text-stone-900 font-bold';
-                    bgClass = 'bg-yellow-300/80';
-                    underline = 'border-b-4 border-stone-900';
-                  }
-
-                  return (
-                    <span key={i} className={`relative ${colorClass} ${bgClass} rounded-[2px] ${underline} inline-block transition-colors duration-75`}>
-                      {char === ' ' ? '\u00A0' : char}
-                    </span>
-                  );
-                })}
-              </div>
-
-              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-stone-200">
-                <div 
-                  className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
-                  style={{ width: `${progressPercent}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="relative z-20 bg-stone-900 mt-[-5px] sm:mt-[-10px] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-b-8 border-stone-950 p-4 pb-8 pt-10 sm:p-8 pb-12 sm:pt-16">
-              
-              <div className="absolute top-0 left-4 right-4 h-4 sm:h-6 bg-gradient-to-b from-stone-600 via-stone-400 to-stone-800 rounded-full shadow-lg border border-stone-500"></div>
-
-              <div className="flex flex-col gap-2 sm:gap-4 max-w-3xl mx-auto mt-4 sm:mt-6">
-                <div className="flex justify-center gap-2 sm:gap-3 ml-4 sm:ml-6">
-                  {KEYBOARD_ROWS[0].map(char => renderKeyboardKey(char, char, "w-10 h-10 sm:w-12 sm:h-12 text-lg sm:text-xl"))}
-                </div>
-                <div className="flex justify-center gap-2 sm:gap-3 ml-10 sm:ml-12">
-                  {KEYBOARD_ROWS[1].map(char => renderKeyboardKey(char, char, "w-10 h-10 sm:w-12 sm:h-12 text-lg sm:text-xl"))}
-                </div>
-                <div className="flex justify-center gap-2 sm:gap-3 ml-16 sm:ml-20">
-                  {KEYBOARD_ROWS[2].map(char => renderKeyboardKey(char, char, "w-10 h-10 sm:w-12 sm:h-12 text-lg sm:text-xl"))}
-                </div>
-                <div className="flex justify-center mt-2">
-                  {renderKeyboardKey(' ', 'SPACE', "w-64 sm:w-96 h-10 sm:h-12 text-sm sm:text-lg tracking-widest")}
-                </div>
-              </div>
-
-              {gameState === 'idle' && (
-                <div className="absolute bottom-2 sm:bottom-4 left-0 right-0 text-center animate-pulse">
-                  <span className="bg-yellow-400 text-stone-900 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg">
-                    Start typing to begin!
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Results Modal */}
-          {gameState === 'results' && (
-            <div className="fixed inset-0 bg-stone-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-              <div className="bg-[#fdfaf3] rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl border-4 border-stone-800 text-center transform duration-300">
-                
-                <div className="flex justify-center mb-4">
-                  {passedLevel ? (
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-emerald-100 rounded-full flex items-center justify-center">
-                      <Trophy size={32} className="text-emerald-500 sm:w-10 sm:h-10" />
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-rose-100 rounded-full flex items-center justify-center">
-                      <RefreshCcw size={32} className="text-rose-500 sm:w-10 sm:h-10" />
-                    </div>
-                  )}
-                </div>
-
-                <h2 className="text-2xl sm:text-3xl font-bold text-stone-800 mb-2">
-                  {passedLevel ? "Level Passed!" : "Keep Practicing!"}
-                </h2>
-                <p className="text-sm sm:text-base text-stone-600 mb-6 sm:mb-8 font-medium">
-                  {passedLevel 
-                    ? "You met the goal! Ready for new keys?" 
-                    : "You didn't quite meet the goal. Try again to build muscle memory."}
-                </p>
-
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  <div className={`p-3 sm:p-4 rounded-xl border-2 ${stats.wpm >= currentTargetWpm ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                    <div className="text-stone-500 text-xs sm:text-sm font-bold uppercase mb-1">Speed</div>
-                    <div className="text-3xl sm:text-4xl font-black text-stone-800">{stats.wpm}</div>
-                    <div className="text-[10px] sm:text-xs text-stone-500 mt-1">Goal: {currentTargetWpm} wpm</div>
-                    {stats.wpm >= currentTargetWpm ? <CheckCircle size={16} className="text-emerald-500 mx-auto mt-1 sm:mt-2"/> : <XCircle size={16} className="text-rose-400 mx-auto mt-1 sm:mt-2"/>}
-                  </div>
-                  
-                  <div className={`p-3 sm:p-4 rounded-xl border-2 ${stats.accuracy >= TARGET_ACCURACY ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
-                    <div className="text-stone-500 text-xs sm:text-sm font-bold uppercase mb-1">Accuracy</div>
-                    <div className="text-3xl sm:text-4xl font-black text-stone-800">{stats.accuracy}%</div>
-                    <div className="text-[10px] sm:text-xs text-stone-500 mt-1">Goal: {TARGET_ACCURACY}%</div>
-                    {stats.accuracy >= TARGET_ACCURACY ? <CheckCircle size={16} className="text-emerald-500 mx-auto mt-1 sm:mt-2"/> : <XCircle size={16} className="text-rose-400 mx-auto mt-1 sm:mt-2"/>}
-                  </div>
-                </div>
-
-                <button 
-                  onClick={handleNextAction}
-                  className={`w-full py-3 sm:py-4 px-6 rounded-xl text-lg sm:text-xl font-bold shadow-[0_4px_0_rgba(0,0,0,0.2)] transition-all active:translate-y-1 active:shadow-none flex items-center justify-center gap-2
-                    ${passedLevel ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-yellow-400 hover:bg-yellow-300 text-stone-900'}
-                  `}
-                >
-                  {passedLevel && currentLevel === LEVEL_DATA.length ? (
-                    <React.Fragment>Next Goal <Play size={20} className="sm:w-6 sm:h-6" fill="currentColor" /></React.Fragment>
-                  ) : passedLevel ? (
-                    <React.Fragment>Next Level <Play size={20} className="sm:w-6 sm:h-6" fill="currentColor" /></React.Fragment>
-                  ) : (
-                    <React.Fragment>Try Again <RefreshCcw size={20} className="sm:w-6 sm:h-6" /></React.Fragment>
-                  )}
-                </button>
-                
-                <p className="mt-4 text-[10px] sm:text-xs text-stone-400 uppercase font-bold tracking-widest">
-                  Press Enter or Space to continue
-                </p>
-              </div>
-            </div>
-          )}
-
-        </div>
-      );
+/* ============================ TYPING ENGINE ============================ */
+let T = null;   // the current typing exercise
+function startTyping(text, active, newKeys, onDone) {
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  T = { text, pos: 0, missedHere: false, missed: new Set(), firstTry: 0, times: [], onDone, done: false, active, newKeys, keyMiss: {} };
+  main.innerHTML = `
+    <div class="paperwrap"><div class="paper" id="paper">${[...text].map((c, i) => `<span class="c${c === " " ? " sp" : ""}" data-i="${i}">${c === " " ? "·" : esc(c)}</span>${c === " " ? "<wbr>" : ""}`).join("")}</div>
+      <div class="caps" id="caps" hidden>Caps Lock is on. Press Caps Lock to turn it off.</div></div>
+    <p class="tip" id="tip">Keep your eyes on the screen. The yellow key shows what to press.</p>
+    <div class="machine">${keyboardHtml(active, newKeys)}${handsHtml()}</div>`;
+  paint();
+}
+function paint() {
+  const spans = document.querySelectorAll("#paper .c");
+  spans.forEach((s, i) => {
+    s.classList.toggle("typed", i < T.pos && !T.missed.has(i));
+    s.classList.toggle("missed", i < T.pos && T.missed.has(i));
+    s.classList.toggle("cur", i === T.pos);
+  });
+  lightKey(T.pos < T.text.length ? T.text[T.pos] : null);
+}
+const shiftDown = new Set();
+window.addEventListener("keyup", e => {
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") shiftDown.delete(e.code);
+  const k = e.key && e.key.toLowerCase();
+  if (k) document.querySelectorAll(`.key[data-k="${CSS.escape(k === " " ? " " : k)}"]`).forEach(el => el.classList.remove("down"));
+});
+window.addEventListener("keydown", e => {
+  if (e.code === "ShiftLeft" || e.code === "ShiftRight") { shiftDown.add(e.code); flashKey(e.code === "ShiftLeft" ? "ShiftL" : "ShiftR", "down", 150); return; }
+  if (e.key === " " || e.key === "/" || e.key === "'") e.preventDefault();
+  if (cardKeys(e)) return;
+  if (!T || T.done) return;
+  const caps = e.getModifierState && e.getModifierState("CapsLock");
+  $("#caps").hidden = !caps;
+  if (caps || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+  const want = T.text[T.pos], got = e.key, now = performance.now();
+  flashKey(got.toLowerCase(), "down", 120);
+  if (got === want) {
+    if (!T.missedHere) T.firstTry++;
+    track(want, T.missedHere);
+    T.times.push(now);
+    T.pos++; T.missedHere = false;
+    tip("");
+    if (want !== want.toLowerCase()) {
+      const right = FINGER[want.toLowerCase()].endsWith("L") ? "ShiftRight" : "ShiftLeft";
+      if (!shiftDown.has(right)) tip(`Nice capital! Next time, try the Shift key on the ${right === "ShiftRight" ? "right" : "left"} side, with the pinky on the other hand.`);
     }
+    if (T.pos >= T.text.length) return finish();
+    paint();
+  } else {
+    if (!T.missedHere) { T.missedHere = true; T.missed.add(T.pos); }
+    flashKey(got.toLowerCase(), "wrong", 300);
+    const cur = document.querySelector(`#paper .c[data-i="${T.pos}"]`);
+    if (cur) { cur.classList.remove("bump"); void cur.offsetWidth; cur.classList.add("bump"); }
+    const lw = want.toLowerCase();
+    let msg = `That was ${esc(keyName(got.toLowerCase()))}. `;
+    if (want !== lw && got.toLowerCase() === lw) msg = `Hold Shift with your ${FINGER[lw].endsWith("L") ? "right" : "left"} pinky for a capital ${esc(want)}.`;
+    else msg += `Use your <b>${FINGER_NAME[FINGER[lw]]}</b> for ${esc(keyName(lw))}.`;
+    tip(msg, true);
+  }
+});
+function tip(html, oops) { const t = $("#tip"); if (!t) return; t.innerHTML = html || "&nbsp;"; t.classList.toggle("oops", !!oops); }
+function track(ch, missed) {
+  const k = ch.toLowerCase();
+  if (k === " ") return;
+  const v = P.keys[k] || [0, 0]; v[0]++; if (missed) v[1]++; P.keys[k] = v;
+  if (missed) T.keyMiss[k] = (T.keyMiss[k] || 0) + 1;
+}
+function finish() {
+  T.done = true; paint(); save();
+  const n = T.text.length, acc = Math.round(100 * T.firstTry / n);
+  // Speed: characters per minute / 5. Long pauses (over 4 seconds) count as 4 seconds.
+  let ms = 0;
+  for (let i = 1; i < T.times.length; i++) ms += Math.min(4000, T.times[i] - T.times[i - 1]);
+  const wpm = ms > 0 ? Math.round(((n - 1) / 5) / (ms / 60000)) : 0;
+  const misses = Object.entries(T.keyMiss).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k]) => k);
+  T.onDone({ acc, wpm, misses });
+}
 
-    // Render the App
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+/* ---------- Result and info cards ---------- */
+let cardEnter = null, cardOpenedAt = 0, cardOther = null;
+function showCard(html, onEnter, other) {
+  const ov = document.createElement("div");
+  ov.className = "overlay"; ov.innerHTML = `<div class="card">${html}</div>`;
+  main.style.position = "relative"; main.appendChild(ov);
+  cardEnter = onEnter; cardOther = other || null; cardOpenedAt = performance.now();
+  ov.querySelectorAll("[data-act]").forEach(b => b.onclick = () => { const f = b.dataset.act === "enter" ? cardEnter : cardOther; closeCard(); f && f(); });
+}
+function closeCard() { document.querySelectorAll(".overlay").forEach(o => o.remove()); cardEnter = null; cardOther = null; }
+// On a card, only Enter continues (and not in the first moment), so an extra space bar tap can't skip it.
+function cardKeys(e) {
+  if (!cardEnter) return false;
+  if (e.key === "Enter" && performance.now() - cardOpenedAt > 600) { const f = cardEnter; closeCard(); f(); }
+  return true;
+}
+
+/* ============================ LESSON FLOW ============================ */
+function setCrumbs(title, steps, cur) {
+  crumbs.innerHTML = `<h2>${esc(title)}</h2>` + (steps ? `<div class="steps">${steps.map((s, i) => `<span class="${i === cur ? "now" : i < cur ? "done" : ""}">${s.name}</span>`).join("")}</div>` : "");
+}
+function runLesson(li, si = 0) {
+  const L = LESSONS[li], steps = lessonSteps(li), step = steps[si];
+  const all = li === SHIFT_LESSON ? [...lettersUpTo(SHIFT_LESSON - 1), "Shift"] : lettersUpTo(li);
+  const newKeys = li === SHIFT_LESSON ? ["Shift"] : L.keys;
+  setCrumbs(`Lesson ${li + 1}: ${L.title}`, steps, si);
+  const next = () => si + 1 < steps.length ? runLesson(li, si + 1) : lessonDone(li);
+
+  if (step.id === "meet") {
+    T = null;
+    const keyList = li === SHIFT_LESSON ? "the Shift keys" : listJoin(L.keys.map(k => kc(k)));
+    const fingers = li === SHIFT_LESSON ? "" : `<p>${L.keys.map(k => `${kc(k)} uses your <b>${FINGER_NAME[FINGER[k]]}</b>.`).join(" ")}</p>`;
+    main.innerHTML = `<div class="paperwrap"><div class="paper meetpanel">
+        <div class="meet"><h3>New keys: ${keyList}</h3><p>${esc(L.meet)}</p>${fingers}</div>
+        <div class="go"><button class="btn primary" id="go">Start the warm-up</button><p class="hint">Press Enter</p></div></div></div>
+      <p class="tip">The new keys are circled in yellow. Try to type without looking down at your hands.</p>
+      <div class="machine">${keyboardHtml(all, newKeys)}${handsHtml()}</div>`;
+    if (li !== SHIFT_LESSON) lightKeys(L.keys); else lightKeys(["ShiftL", "ShiftR"]);
+    cardEnter = next; cardOpenedAt = performance.now() - 400;
+    $("#go").onclick = () => { cardEnter = null; next(); };
+    return;
+  }
+  const text = step.id === "warmup" ? warmupText(li) : step.id === "drill" ? drillText(li) : step.id === "mix" ? mixText(li) : wordsText(li);
+  startTyping(text, all, newKeys, r => {
+    const graded = step.id !== "warmup";
+    const stars = starsFor(r.acc);
+    if (graded) { const id = `${li}-${step.id}`; P.stars[id] = Math.max(P.stars[id] || 0, stars); save(); }
+    const passed = !graded || stars >= 1;
+    const missLine = r.misses.length ? `<p>Keys to watch: ${r.misses.map(k => kc(k)).join(" ")}</p>` : "";
+    if (passed) {
+      showCard(`${graded ? starHtml(stars) : ""}<h3>${graded ? ["", "Nice work!", "Great job!", "Perfect typing!"][stars] : "Warm-up done!"}</h3>
+        <div class="nums"><div><b>${r.acc}%</b>accuracy</div><div><b>${r.wpm}</b>words per minute</div></div>${missLine}
+        ${graded && stars < 3 ? `<p class="hint">For another star, aim for ${SETTINGS.STAR_ACCURACY[stars]}% accuracy. Slow and steady wins!</p>` : ""}
+        <div class="actions"><button class="btn" data-act="other">Try again</button><button class="btn primary" data-act="enter">${si + 1 < steps.length ? `Next: ${steps[si + 1].name}` : "Finish the lesson"}</button></div><p class="hint">Press Enter to go on</p>`,
+        next, () => runLesson(li, si));
+    } else {
+      showCard(`${starHtml(0)}<h3>Let's try that one again</h3>
+        <div class="nums"><div><b>${r.acc}%</b>accuracy</div><div><b>${r.wpm}</b>words per minute</div></div>${missLine}
+        <p>You need ${SETTINGS.STAR_ACCURACY[0]}% accuracy for a star. Go slower this time, and keep your fingers on the home keys. Speed comes later!</p>
+        <div class="actions"><button class="btn" data-act="other">Back to lessons</button><button class="btn primary" data-act="enter">Try again</button></div><p class="hint">Press Enter to try again</p>`,
+        () => runLesson(li, si), showLessons);
+    }
+  });
+}
+function lightKeys(keys) { keys.forEach(k => { const el = document.querySelector(`.key[data-k="${CSS.escape(k)}"]`); if (el) el.classList.add("next"); }); }
+function lessonStars(li) { return lessonSteps(li).filter(s => !["meet", "warmup"].includes(s.id)).reduce((a, s) => a + (P.stars[`${li}-${s.id}`] || 0), 0); }
+function lessonMax(li) { return 3 * lessonSteps(li).filter(s => !["meet", "warmup"].includes(s.id)).length; }
+function lessonDone(li) {
+  const L = LESSONS[li];
+  if (P.unlocked < li + 1) { P.unlocked = Math.min(li + 1, LESSONS.length); save(); }
+  T = null;
+  const last = li === LESSONS.length - 1;
+  main.innerHTML = `<div class="machine">${keyboardHtml(li === SHIFT_LESSON ? [...lettersUpTo(SHIFT_LESSON - 1), "Shift"] : lettersUpTo(li))}${handsHtml()}</div>`;
+  showCard(`${starHtml(Math.round(3 * lessonStars(li) / lessonMax(li)))}<h3>Lesson ${li + 1} complete!</h3>
+    <p>${li === SHIFT_LESSON ? "You can type capital letters now." : `You learned ${listJoin(L.keys.map(k => kc(k)))}.`} You earned ${lessonStars(li)} of ${lessonMax(li)} stars.</p>
+    ${last ? "<p>You know the whole keyboard! Head to Speed Builder to start building speed.</p>" : ""}
+    <div class="actions"><button class="btn" data-act="other">Lessons</button><button class="btn primary" data-act="enter">${last ? "Speed Builder" : `Lesson ${li + 2}: ${LESSONS[li + 1].title}`}</button></div><p class="hint">Press Enter</p>`,
+    () => last ? runSpeed() : runLesson(li + 1), showLessons);
+}
+
+/* ============================ TRICKY KEYS ============================ */
+function runTricky() {
+  const keys = trickyKeys();
+  if (!keys.length) return showLessons();
+  setCrumbs("Tricky keys practice");
+  const all = lettersUpTo(Math.min(P.unlocked, SHIFT_LESSON - 1));
+  startTyping(trickyText(keys), all, keys, r => {
+    showCard(`${starHtml(starsFor(r.acc))}<h3>Practice done!</h3><div class="nums"><div><b>${r.acc}%</b>accuracy</div><div><b>${r.wpm}</b>words per minute</div></div>
+      <p>Your tricky keys right now: ${trickyKeys().map(k => kc(k)).join(" ") || "none!"}</p>
+      <div class="actions"><button class="btn" data-act="other">Lessons</button><button class="btn primary" data-act="enter">Practice again</button></div><p class="hint">Press Enter</p>`,
+      runTricky, showLessons);
+  });
+}
+
+/* ============================ SPEED BUILDER ============================ */
+function runSpeed() {
+  const belt = Math.min(P.belt, SETTINGS.SPEED_BELTS.length - 1), goal = SETTINGS.SPEED_BELTS[belt];
+  setCrumbs(`Speed Builder: goal ${goal} words per minute`);
+  const all = [...lettersUpTo(SHIFT_LESSON - 1), "Shift"];
+  startTyping(shuffle(SENTENCES).slice(0, 2).join(" "), all, [], r => {
+    const newBest = r.acc >= SETTINGS.SPEED_BELT_ACCURACY && r.wpm > P.best;
+    if (newBest) P.best = r.wpm;
+    const earned = r.acc >= SETTINGS.SPEED_BELT_ACCURACY && r.wpm >= goal;
+    if (earned && P.belt < SETTINGS.SPEED_BELTS.length) P.belt++;
+    save();
+    const nextGoal = SETTINGS.SPEED_BELTS[Math.min(P.belt, SETTINGS.SPEED_BELTS.length - 1)];
+    let msg;
+    if (earned) msg = P.belt >= SETTINGS.SPEED_BELTS.length ? `You reached the top goal of ${goal} words per minute. Amazing!` : `You reached ${goal} words per minute! Your next goal is ${nextGoal}.`;
+    else if (r.acc < SETTINGS.SPEED_BELT_ACCURACY) msg = `Your speed counts when your accuracy is ${SETTINGS.SPEED_BELT_ACCURACY}% or better. Slow down a little and aim for clean typing.`;
+    else msg = `Keep going! You need ${goal} words per minute for this goal. Smooth and steady typing gets faster on its own.`;
+    showCard(`<h3>${earned ? "Goal reached!" : newBest ? "New personal best!" : "Good practice!"}</h3>
+      <div class="nums"><div><b>${r.wpm}</b>words per minute</div><div><b>${r.acc}%</b>accuracy</div><div><b>${P.best}</b>your best</div></div>
+      <p>${msg}</p>${r.misses.length ? `<p>Keys to watch: ${r.misses.map(k => kc(k)).join(" ")}</p>` : ""}
+      <div class="actions"><button class="btn" data-act="other">Lessons</button><button class="btn primary" data-act="enter">Next sentences</button></div><p class="hint">Press Enter</p>`,
+      runSpeed, showLessons);
+  });
+}
+
+/* ============================ LESSON LIST ============================ */
+function showLessons() {
+  closeCard(); T = null; lightKey(null);
+  setCrumbs("Lessons");
+  const tricky = trickyKeys(), speedOpen = unlockAll || P.unlocked >= LESSONS.length;
+  const tile = (li) => {
+    const L = LESSONS[li], open = isOpen(li), cur = li === P.unlocked && !unlockAll;
+    const keys = li === SHIFT_LESSON ? `<span class="kc fpinkyL">shift</span>` : L.keys.map(k => kc(k)).join("");
+    return `<button class="tile${open ? "" : " locked"}${cur ? " current" : ""}" ${open ? `data-l="${li}"` : "disabled"}>
+      <span class="t">${li + 1}. ${esc(L.title)}</span><span class="keys">${keys}</span>
+      <span class="st">${open ? starText(lessonStars(li), lessonMax(li)) : "Locked"}</span></button>`;
+  };
+  main.innerHTML = `<div class="lessons">
+    <h3>Learn the keys, two at a time. One star on each step opens the next lesson.</h3>
+    <div class="grid">${LESSONS.map((_, i) => tile(i)).join("")}</div>
+    <h3>More practice</h3>
+    <div class="grid">
+      <button class="tile${tricky.length ? "" : " locked"}" ${tricky.length ? 'data-x="tricky"' : "disabled"}><span class="t">Tricky keys</span>
+        <span class="s">${tricky.length ? `Practice the keys you miss most: ${tricky.map(k => kc(k)).join("")}` : "Keys you miss often will show up here."}</span></button>
+      <button class="tile${speedOpen ? "" : " locked"}" ${speedOpen ? 'data-x="speed"' : "disabled"}><span class="t">Speed Builder</span>
+        <span class="s">${speedOpen ? `Goal: ${SETTINGS.SPEED_BELTS[Math.min(P.belt, SETTINGS.SPEED_BELTS.length - 1)]} words per minute. Your best: ${P.best}.` : "Opens after all the lessons."}</span></button>
+    </div>
+    <p class="hint" style="margin-top:14px">Progress is saved on this computer. <button class="btn small" id="reset">Start over</button></p>
+  </div>`;
+  main.querySelectorAll("[data-l]").forEach(b => b.onclick = () => runLesson(+b.dataset.l));
+  main.querySelectorAll("[data-x]").forEach(b => b.onclick = () => b.dataset.x === "tricky" ? runTricky() : runSpeed());
+  $("#reset").onclick = () => { if (confirm("Start over? This clears all lessons, stars and speed goals saved on this computer.")) { localStorage.removeItem("typeomatic2"); location.reload(); } };
+}
+function starText(n, max) { return n ? `${"★".repeat(Math.round(3 * n / max))}${"☆".repeat(3 - Math.round(3 * n / max))} ${n} of ${max} stars` : "Not started"; }
+
+/* ============================ START UP ============================ */
+$("#lessonsBtn").onclick = showLessons;
+const blankBtn = $("#blankBtn");
+blankBtn.classList.toggle("on", P.blank);
+blankBtn.onclick = () => {
+  P.blank = !P.blank; save(); blankBtn.classList.toggle("on", P.blank);
+  const kb = $("#kb"); if (kb) kb.classList.toggle("blank", P.blank);
+  blankBtn.blur();
+};
+$("#lessonsBtn").addEventListener("mouseup", e => e.currentTarget.blur());
+showLessons();
+</script>
 </body>
 </html>
